@@ -84,3 +84,28 @@ elif u.settings.is_premium:  # computed and cached
 ## Notes
 
 - Inheritance: **xprops** and `F_PickleIgnore__` flags are merged via the MRO.
+
+
+## Changelog
+
+### 0.2
+
+- cache entries are now also accessible via subtypes
+
+
+```python
+...
+@PropCache
+class User:
+    ...
+
+class PremiumUser(User):
+    ...
+
+pu = PremiumUser(42, loader)
+PropCache.cp_purge(pu)
+```
+
+### 0.1
+
+Initial release

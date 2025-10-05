@@ -5,7 +5,7 @@ from types import UnionType
 from typing import Type, TypeVar, Callable, Generic, Protocol
 
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 _T = TypeVar("_T")
@@ -52,7 +52,7 @@ class _PropsCacheRecord(Generic[_T]):
                 self.pickle_ignore_attrs.add(__k)
 
         for inhT in T.__mro__[1:-1]:  # 0: THIS; -1: object
-            if (inhR := PropCache.get(inhT)) is not None:
+            if (inhR := PropCache.getexact(inhT)) is not None:
                 self.xprops |= inhR.xprops
                 self.pickle_ignore_attrs |= inhR.pickle_ignore_attrs
 
@@ -97,20 +97,33 @@ class _PropCache(Generic[_T]):
         self.__cache__[T] = _PropsCacheRecord(T)
         return T
 
+    def getbysubtype(self, T: Type[_T]) -> _PropsCacheRecord[_T] | None:
+        if T not in self.__cache__:
+            for TT in T.__mro__[:-1]:  # -1: object
+                if (R := self.__cache__.get(TT)) is not None:
+                    self.__cache__[T] = R
+                    return R
+            else:
+                return None
+        return self.__cache__[T]
+
+    def getexact(self, T: Type[_T]) -> _PropsCacheRecord[_T] | None:
+        return self.__cache__.get(T)
+
     def __getitem__(self, T: Type[_T]) -> _PropsCacheRecord[_T]:
         return self.__cache__[T]
 
-    def get(self, T: Type[_T]) -> _PropsCacheRecord[_T] | None:
-        return self.__cache__.get(T)
-
     def cp_purge(self, inst: _T):
-        self.__getitem__(type(inst)).cp_purge(inst)
+        if R := self.getbysubtype(type(inst)):
+            R.cp_purge(inst)
 
     def cp_reset_by_flag(self, inst: _T, flags: int):
-        self.__getitem__(type(inst)).cp_reset_by_flag(inst, flags)
+        if R := self.getbysubtype(type(inst)):
+            R.cp_reset_by_flag(inst, flags)
 
     def pickle_purge(self, inst: _T, __dict__: dict[str, object]):
-        self.__getitem__(type(inst)).pickle_purge(__dict__)
+        if R := self.getbysubtype(type(inst)):
+            R.pickle_purge(__dict__)
 
     @staticmethod
     def cached_property(x: Callable | int) -> __xprop__ | Callable[..., __xprop__]:
